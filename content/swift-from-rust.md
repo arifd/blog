@@ -195,7 +195,7 @@ repeatAction(times: 3) {
 <aside>
     At first this made me feel a little sick in my stomach, but you get used to
     it. It feels like the syntax-bending you see in languages that don't require
-    parentheses for function application—only worse, because Swift both uses it
+    parentheses for function paremeters, only worse, because Swift both uses it
     and doesn't.
 </aside>
 
