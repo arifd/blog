@@ -1,0 +1,7 @@
+source {
+    content content
+}
+
+site {
+    output public
+}
