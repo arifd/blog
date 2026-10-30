@@ -2,7 +2,7 @@ name: Publish to GitHub Pages
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -29,6 +29,11 @@ jobs:
 
       - name: Build site
         run: nix develop --command ddc build
+
+      - name: Add GitHub Pages project path
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python3 scripts/add-pages-base-path.py public
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5

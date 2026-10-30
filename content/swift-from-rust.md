@@ -3,7 +3,7 @@ title = "Swift for Rust Developers: The Surprising Parts"
 weight = 1
 
 [extra]
-date = "2026-10-29"
+date = "2026-10-30"
 author = "Arif Driessen"
 +++
 
