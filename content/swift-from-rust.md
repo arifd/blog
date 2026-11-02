@@ -1,21 +1,21 @@
 +++
 title = "Swift for Rust Developers: The Surprising Parts"
 weight = 1
-
 [extra]
 date = "2026-10-30"
 author = "Arif Driessen"
 +++
 
-Swift shares several syntactic similarities with Rust, making it easy to
-assume that familiar constructs behave the same way, even when their
-semantics differ.
+Swift shares several syntactic similarities with Rust, making it easy to assume
+that familiar constructs behave the same way, even when their semantics differ.
 
 This article documents the differences that caught me off guard while learning
-Swift and developing [a custom app launcher for macOS](https://github.com/arifd/mac-config/tree/main/programs/launcher).
+Swift and developing
+[a custom app launcher for macOS](https://github.com/arifd/mac-config/tree/main/programs/launcher).
 
 Rather than providing an exhaustive comparison of the two languages, it focuses
-on the differences worth knowing to make the transition from Rust to Swift smoother.
+on the differences worth knowing to make the transition from Rust to Swift
+smoother.
 
 <aside>
     Throughout this blog post, where you see text inside a block such as this,
@@ -36,8 +36,8 @@ var area: Double {
 }
 ```
 
-Reading `area` executes the getter, while assigning `area = 100`
-executes the setter.
+Reading `area` executes the getter, while assigning `area = 100` executes the
+setter.
 
 Even a `var` declaration can be read-only if it defines only a getter:
 
@@ -76,10 +76,9 @@ Similarly, `any` is roughly equivalent to `dyn`.
 
 ## Package manifest directives in comments
 
-The Swift Package Manager requires a comment like
-`// swift-tools-version: 6.0` at the very top of `Package.swift`.
-Removing it breaks compilation entirely because the parser relies on it to
-determine the toolchain version.
+The Swift Package Manager requires a comment like `// swift-tools-version: 6.0`
+at the very top of `Package.swift`. Removing it breaks compilation entirely
+because the parser relies on it to determine the toolchain version.
 
 ## Documentation generation (DocC)
 
@@ -110,11 +109,10 @@ swift package --disable-sandbox \
 
 ## Modules and visibility
 
-In Swift, a "module" is roughly equivalent to a crate, rather than an
-individual source file as it typically is in Rust. All files within the
-same Swift module can access each other's internal declarations without
-`mod` or `use` statements. The `public` keyword in Swift exposes declarations
-to other Swift modules.
+In Swift, a "module" is roughly equivalent to a crate, rather than an individual
+source file as it typically is in Rust. All files within the same Swift module
+can access each other's internal declarations without `mod` or `use` statements.
+The `public` keyword in Swift exposes declarations to other Swift modules.
 
 <aside>
     At first this was rather surprising, but I became a fan of it for my own
@@ -199,6 +197,37 @@ repeatAction(times: 3) {
     and doesn't.
 </aside>
 
+## Result builders
+
+Swift has a compiler-supported feature called `@resultBuilder`, which allows
+multiple expressions inside a closure to be combined into a single value.
+
+For example, in SwiftUI, you can write:
+
+```swift
+VStack(spacing: 24) {
+    Text("Hello")
+    Image(systemName: "star")
+    Button("Click me") {}
+}
+```
+
+At first glance, this looks like a closure containing multiple expressions,
+without an array, commas, or even an explicit return statement.
+
+This works because `VStack` takes a closure annotated with `@ViewBuilder`, which
+is itself implemented using `@resultBuilder`.
+
+`@resultBuilder` is built into the Swift compiler, but the builders themselves
+are ordinary Swift types. SwiftUI's `@ViewBuilder` is one such builder.
+
+<aside>
+    This is another feature that doesn't feel great, since there is no
+    indication at the call site that special syntax rules are at play. Rust
+    also exposes readers to custom syntax through its declarative macros, but
+    makes macro invocations explicit with the `!` suffix.
+</aside>
+
 ## `if let` and `guard let`
 
 Swift's `if let` is conceptually similar to Rust's `if let`, and `guard let`
@@ -219,8 +248,8 @@ func greet(_ name: String?) {
 }
 ```
 
-And here is `guard let`, which exits early and leaves the unwrapped variable
-in scope for the rest of the function:
+And here is `guard let`, which exits early and leaves the unwrapped variable in
+scope for the rest of the function:
 
 ```swift
 func greet(_ name: String?) {
@@ -278,11 +307,12 @@ configuration.activates = true  // OK!
 configuration = Configuration() // Error!
 ```
 
-Swift's `let` does not guarantee that an object is immutable; it only
-guarantees that the binding cannot be reassigned.
+Swift's `let` does not guarantee that an object is immutable; it only guarantees
+that the binding cannot be reassigned.
 
 <aside>
     This caught me completely off guard, as I began to worry what it could mean
     to my sanity in a world where the `let`/`var` sanctity has been broken. But
-    I guess it's the same process one goes through, when discovering interior mutability in Rust.
+    I guess it's the same process one goes through, when discovering interior
+    mutability in Rust.
 </aside>
