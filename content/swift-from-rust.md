@@ -1,6 +1,6 @@
 +++
 title = "Swift for Rust Developers: The Surprising Parts"
-weight = 1
+weight = 2
 [extra]
 date = "2026-10-30"
 author = "Arif Driessen"
@@ -20,6 +20,92 @@ smoother.
 <aside>
     Throughout this blog post, where you see text inside a block such as this,
     this indicates my subjective experience of the particular phenomena
+</aside>
+
+## Named function arguments
+
+Swift supports named function arguments, called *argument labels*.
+
+```swift
+func greet(name: String, age: Int) {
+    print("Hello, \(name)! You are \(age).")
+}
+
+greet(name: "Alice", age: 30)
+```
+
+By default, parameters must be passed using their labels. You can omit a label
+by declaring it with `_`:
+
+```swift
+func greet(_ name: String) {
+    print("Hello, \(name)!")
+}
+
+greet("Alice")
+```
+
+Swift also allows the external argument label to differ from the internal
+parameter name:
+
+```swift
+func greet(person name: String) {
+    print("Hello, \(name)!")
+}
+
+greet(person: "Alice")
+```
+
+## KeyPaths
+
+Swift has a built-in `KeyPath` type, which represents a type-safe reference to a
+property, without accessing the property itself.
+
+For example:
+
+```swift
+struct Person {
+    var name: String
+    var age: Int
+}
+
+let namePath = \Person.name
+let person = Person(name: "Alice", age: 30)
+
+print(person[keyPath: namePath]) // Alice
+```
+
+A `KeyPath` is checked at compile time. The compiler knows both the root type
+(`Person`) and the property's value type (`String`).
+
+Key paths can also reference nested properties:
+
+```swift
+let cityPath = \Person.address.city
+```
+
+They can be passed around as values, which makes them useful for generic
+functions:
+
+```swift
+func get<T, V>(_ value: T, at path: KeyPath<T, V>) -> V {
+    value[keyPath: path]
+}
+
+get(person, at: \.name) // "Alice"
+```
+
+For mutable properties, Swift also provides `WritableKeyPath`, allowing generic
+code to modify a property through its path.
+
+Rust has no direct equivalent built into the language. You can achieve something
+similar with closures such as `|person: &Person| &person.name`, but Swift
+provides dedicated syntax and types for this concept.
+
+<aside>
+    I found this surprisingly elegant. It's effectively a way to pass around
+    property access as a first-class value, without resorting to reflection
+    or stringly-typed field names.
 </aside>
 
 ## Computed properties and property observers
@@ -138,6 +224,35 @@ Semicolons are optional in Swift and are only required when writing multiple
 statements on the same line.
 
 Idiomatic Swift omits semicolons unless needed.
+
+## Function Overloading
+
+Swift supports function overloading, thus the following code will compile:
+
+```swift
+func greet(name: String) {
+    print("Hello, \(name)!")
+}
+
+func greet(name: String, age: Int) {
+    print("Hello, \(name)! You are \(age).")
+}
+
+func greet(name: Int) {
+    print("Hello, user #\(name)!")
+}
+```
+
+Argument labels are part of a function's signature, so functions can be
+overloaded based on their labels alone:
+
+```swift
+func move(to position: Int) { /* ... */ }
+func move(by offset: Int) { /* ... */ }
+
+move(to: 10)
+move(by: 10)
+```
 
 ## Trailing Closure Syntax
 
@@ -316,3 +431,106 @@ that the binding cannot be reassigned.
     I guess it's the same process one goes through, when discovering interior
     mutability in Rust.
 </aside>
+
+## Async/await
+
+Swift has a concurrency runtime built into its runtime and standard library.
+
+In Rust, calling an async function creates a lazy future that does nothing until
+polled:
+
+```rust
+let future = fetch_data();      // Creates the future but does not execute yet.
+let data = fetch_data().await;  // Executes the future.
+```
+
+In Swift, calling an async function without `await` is a compile error:
+
+```swift
+let data = fetchData()        // Compile error!
+let data = await fetchData()  // Executes the future.
+```
+
+To spawn independent concurrent work, Swift provides `Task {}`, roughly
+equivalent to `tokio::spawn`:
+
+```swift
+// This task can outlive the enclosing scope.
+let task = Task {
+    await fetchData()
+}
+
+// Execution continues without waiting for the spawned task.
+
+// Wait for the task to finish before continuing.
+let data = await task.value
+```
+
+Swift also provides `async let` for spawning concurrent work whose lifetime is
+bound to the enclosing scope:
+
+```swift
+// Spawn two child tasks concurrently, bound to the enclosing scope.
+async let users = fetchUsers()
+async let posts = fetchPosts()
+
+// Await both results. If omitted, Swift cancels any outstanding child tasks
+// and waits for them to finish before leaving the enclosing scope.
+let (u, p) = await (users, posts)
+```
+
+Swift also provides `Task.detached {}` for spawning an independent task but
+without inheriting the surrounding actor isolation, task-local values, or
+priority.
+
+## Protocols
+
+Swift **protocols** and Rust **traits** both define behavior that types can
+implement. The mappings below are conceptual rather than always one-to-one.
+
+| Swift protocol                 | Rust equivalent                           | Notes                                         |
+| ------------------------------ | ----------------------------------------- | --------------------------------------------- |
+| `Equatable`                    | `PartialEq`                               | Equality via `==` and `!=`                    |
+| `Comparable`                   | `PartialOrd` + `Ord`                      | Rust distinguishes partial and total ordering |
+| `Hashable`                     | `Hash` + `Eq`                             | Hashing and equality are separate             |
+| `CustomStringConvertible`      | `Display`                                 | Human-readable formatting                     |
+| `CustomDebugStringConvertible` | `Debug`                                   | Debug formatting                              |
+| `Identifiable`                 | Custom trait                              | No standard equivalent                        |
+| `Codable`                      | `serde::Serialize` + `serde::Deserialize` | Requires the `serde` crate                    |
+| `Encodable`                    | `serde::Serialize`                        | Serialization                                 |
+| `Decodable`                    | `serde::Deserialize`                      | Deserialization                               |
+| `Sendable`                     | `Send` (and sometimes `Sync`)             | Different concurrency models; not exact       |
+| `Error`                        | `std::error::Error`                       | Error types                                   |
+| `CaseIterable`                 | `strum::EnumIter`                         | External crate; no standard equivalent        |
+| `RawRepresentable`             | `From` / `TryFrom`                        | Similar conversion patterns, not identical    |
+| `ExpressibleByStringLiteral`   | `From<&str>`                              | Construction, not literal syntax              |
+| `ExpressibleByIntegerLiteral`  | `From<i32>` etc.                          | No direct literal protocol                    |
+| `LosslessStringConvertible`    | `FromStr` + `Display`                     | Parsing and formatting                        |
+| `Copyable`                     | `Copy`                                    | Different copying guarantees                  |
+| `~Copyable`                    | Non-`Copy` type                           | Rust types are non-`Copy` by default          |
+| `BitwiseCopyable`              | Related to `Copy`                         | No exact equivalent                           |
+
+### Collection protocols
+
+| Swift protocol               | Rust equivalent                             | Notes                            |
+| ---------------------------- | ------------------------------------------- | -------------------------------- |
+| `Sequence`                   | `IntoIterator`                              | Something that can be iterated   |
+| `IteratorProtocol`           | `Iterator`                                  | Produces successive elements     |
+| `Collection`                 | No single equivalent                        | Slices, iterators, indexing APIs |
+| `BidirectionalCollection`    | `DoubleEndedIterator`                       | Iteration from both ends         |
+| `RandomAccessCollection`     | `Index` plus collection-specific guarantees | No exact trait                   |
+| `MutableCollection`          | `IndexMut` + mutable iteration              | Element mutation                 |
+| `RangeReplaceableCollection` | `Vec` operations such as `splice`           | No single trait                  |
+| `SetAlgebra`                 | `HashSet` / `BTreeSet` methods              | No standard trait equivalent     |
+| `OptionSet`                  | `bitflags` crate                            | Bitmask options                  |
+
+### Concurrency
+
+| Swift                   | Rust                               | Notes                                                              |
+| ----------------------- | ---------------------------------- | ------------------------------------------------------------------ |
+| `Sendable`              | `Send`                             | Safe transfer across concurrency boundaries, under different rules |
+| No direct equivalent    | `Sync`                             | Shared references are safe across threads                          |
+| Actors                  | `Arc<Mutex<T>>` or actor libraries | No built-in actor equivalent                                       |
+| `AsyncSequence`         | `futures_core::Stream`             | Asynchronous item production                                       |
+| `AsyncIteratorProtocol` | `Stream`                           | Async iteration                                                    |
+| `AsyncStream`           | `futures::stream` utilities        | Stream construction/adapters                                       |
